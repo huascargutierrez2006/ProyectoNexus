@@ -4,19 +4,25 @@
 extern "C" {
     #include "sqlite3.h"
 }
-
+// Definiciones de colores para la consola
+#define RESET   "\033[00m"
+#define RED     "\033[31m"      // Errores
+#define GREEN   "\033[32m"      // Éxitos
+#define YELLOW  "\033[33m"      // Advertencias/IDs
+#define CYAN    "\033[36m"      // Encabezados
+#define BOLD    "\033[1m"       // Resaltado
 using namespace std;
 
 // 2. FUNCIONES DE APOYO (Deben ir ARRIBA del main)
 
 // Esta es la función de impresión que usamos para leer datos
 int imprimirFila(void* data, int argc, char** argv, char** colNombre) {
-    
     for (int i = 0; i < argc; i++) {
-        cout << colNombre[i] << ": " << (argv[i] ? argv[i] : "NULL") << " | ";
+        cout << CYAN << colNombre[i] << ": " << RESET 
+             << (argv[i] ? argv[i] : "NULL") << " | ";
     }
     cout << endl;
-    return 0; // Es vital que retorne 0
+    return 0;
 }
 
 // Función para listar
@@ -73,19 +79,21 @@ void asignarNota(sqlite3* db) {
     double nota;
 
     cout << "\n--- Asignar Calificacion ---" << endl;
-    
-    // Primero, mostramos quiénes están para que el usuario sepa los IDs
     cout << "ID del Estudiante: ";
     cin >> idEstudiante;
-    
     cout << "ID de la Materia: ";
     cin >> idMateria;
-    
-    cout << "Nota Final: ";
-    cin >> nota;
 
-    // Creamos la consulta SQL
-    // Convertimos los números a string automáticamente al concatenar
+    // Validación de la nota
+    do {
+        cout << "Nota Final (0-100): ";
+        cin >> nota;
+
+        if (nota < 0 || nota > 100) {
+            cout << "[!] Error: La nota debe estar entre 0 y 100. Intente de nuevo." << endl;
+        }
+    } while (nota < 0 || nota > 100);
+
     string sql = "INSERT INTO Calificaciones (id_estudiante, id_materia, nota) VALUES (" 
                  + to_string(idEstudiante) + ", " 
                  + to_string(idMateria) + ", " 
@@ -95,11 +103,15 @@ void asignarNota(sqlite3* db) {
     int rc = sqlite3_exec(db, sql.c_str(), 0, 0, &mensajeError);
 
     if (rc != SQLITE_OK) {
-        cerr << "Error al asignar nota: " << mensajeError << endl;
+        cerr << "Error: " << mensajeError << endl;
         sqlite3_free(mensajeError);
     } else {
         cout << "Nota registrada correctamente!" << endl;
     }
+
+    cout << "Presione ENTER para continuar...";
+    cin.ignore();
+    cin.get();
 }
 void verReporteNotas(sqlite3* db) {
     cout << "\n--- REPORTE DE CALIFICACIONES ---" << endl;
@@ -175,26 +187,62 @@ void borrarMateria(sqlite3* db) {
     cin.ignore();
     cin.get();
 }
+void mostrarBanner() {
+    // Comando para limpiar la pantalla (funciona en VS Code y Windows)
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+
+    cout << CYAN << BOLD << "========================================" << RESET << endl;
+    cout << CYAN << BOLD << "       PROYECTO NEXUS ACADEMICO v2.0     " << RESET << endl;
+    cout << CYAN << BOLD << "========================================" << RESET << endl;
+}
 // 3. FUNCIÓN PRINCIPAL (El corazón del programa)
 int main() {
     sqlite3* db;
-    sqlite3_open("sistema_academico.db", &db);
+    int rc;
+
+    // 1. Intentar abrir la conexión con la base de datos
+    rc = sqlite3_open("sistema_academico.db", &db);
+
+    if (rc) {
+        cerr << RED << "No se pudo abrir la base de datos: " << sqlite3_errmsg(db) << RESET << endl;
+        return 1;
+    }
+
+    // Aseguramos que las tablas existan al iniciar
+    // (Asumiendo que tienes una función llamada crearTablas)
+    // crearTablas(db); 
+
     int opcion;
     do {
-        cout << "\n==== SISTEMA NEXUS ACADEMICO V1.5 ====" << endl;
-        cout << "1. Registrar Estudiante" << endl;
-        cout << "2. Ver Estudiantes" << endl;
-        cout << "3. Registrar Materia" << endl;
-        cout << "4. Ver Materias" << endl;
-        cout << "5. Asignar Nota" << endl;
-        cout << "6. Ver Reporte de Notas" << endl;
-        cout << "7. Borrar Estudiante" << endl;
-        cout << "8. Borrar Materia" << endl; // Nueva línea
-        cout << "0. Salir" << endl;
-        cout << "Opcion: ";
+        mostrarBanner(); // Limpia la pantalla y muestra el encabezado azul
+
+        cout << BOLD << "  --- GESTION DE DATOS ---" << RESET << endl;
+        cout << YELLOW << "  1." << RESET << " Registrar Estudiante" << endl;
+        cout << YELLOW << "  2." << RESET << " Ver Lista de Estudiantes" << endl;
+        cout << YELLOW << "  3." << RESET << " Registrar Materia" << endl;
+        cout << YELLOW << "  4." << RESET << " Ver Catalogo de Materias" << endl;
+        
+        cout << BOLD << "\n  --- CALIFICACIONES ---" << RESET << endl;
+        cout << YELLOW << "  5." << RESET << " Asignar Nota (Validado 0-100)" << endl;
+        cout << YELLOW << "  6." << RESET << " Ver Reporte Academico Completo" << endl;
+        
+        cout << BOLD << "\n  --- MANTENIMIENTO ---" << RESET << endl;
+        cout << YELLOW << "  7." << RESET << " Borrar Estudiante" << endl;
+        cout << YELLOW << "  8." << RESET << " Borrar Materia" << endl;
+        
+        cout << RED << "\n  0. Salir del Sistema" << RESET << endl;
+        
+        cout << "\n> Seleccione una opcion: ";
         cin >> opcion;
 
-        switch(opcion) {
+        // Limpieza de buffer vital para que las pausas funcionen
+        cin.ignore(); 
+
+        switch (opcion) {
             case 1: registrarEstudiante(db); break;
             case 2: listarEstudiantes(db); break;
             case 3: registrarMateria(db); break;
@@ -202,10 +250,21 @@ int main() {
             case 5: asignarNota(db); break;
             case 6: verReporteNotas(db); break;
             case 7: borrarEstudiante(db); break;
-            case 8: borrarMateria(db); break; // Nueva línea
+            case 8: borrarMateria(db); break;
+            case 0: 
+                cout << GREEN << "\nSaliendo de Nexus... Hasta pronto!" << RESET << endl; 
+                break;
+            default: 
+                cout << RED << "\n[!] Opción no válida. Intente de nuevo." << RESET << endl;
+                cout << "Presione Enter para continuar...";
+                cin.get();
+                break;
         }
+
     } while (opcion != 0);
 
+    // Cerrar la conexión antes de terminar
     sqlite3_close(db);
+
     return 0;
 }
