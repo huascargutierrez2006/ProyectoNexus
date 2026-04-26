@@ -59,6 +59,52 @@ void listarMaterias(sqlite3* db) {
     const char* sql = "SELECT * FROM Materias;";
     sqlite3_exec(db, sql, imprimirFila, 0, 0);
 }
+void asignarNota(sqlite3* db) {
+    int idEstudiante, idMateria;
+    double nota;
+
+    cout << "\n--- Asignar Calificacion ---" << endl;
+    
+    // Primero, mostramos quiénes están para que el usuario sepa los IDs
+    cout << "ID del Estudiante: ";
+    cin >> idEstudiante;
+    
+    cout << "ID de la Materia: ";
+    cin >> idMateria;
+    
+    cout << "Nota Final: ";
+    cin >> nota;
+
+    // Creamos la consulta SQL
+    // Convertimos los números a string automáticamente al concatenar
+    string sql = "INSERT INTO Calificaciones (id_estudiante, id_materia, nota) VALUES (" 
+                 + to_string(idEstudiante) + ", " 
+                 + to_string(idMateria) + ", " 
+                 + to_string(nota) + ");";
+
+    char* mensajeError = 0;
+    int rc = sqlite3_exec(db, sql.c_str(), 0, 0, &mensajeError);
+
+    if (rc != SQLITE_OK) {
+        cerr << "Error al asignar nota: " << mensajeError << endl;
+        sqlite3_free(mensajeError);
+    } else {
+        cout << "Nota registrada correctamente!" << endl;
+    }
+}
+void verReporteNotas(sqlite3* db) {
+    cout << "\n--- REPORTE DE CALIFICACIONES ---" << endl;
+    
+    // Esta consulta junta las 3 tablas para mostrar nombres en lugar de puros IDs
+    const char* sql = "SELECT Estudiantes.nombre, Estudiantes.apellido, "
+                      "Materias.nombre_materia, Calificaciones.nota "
+                      "FROM Calificaciones "
+                      "INNER JOIN Estudiantes ON Calificaciones.id_estudiante = Estudiantes.id_estudiante "
+                      "INNER JOIN Materias ON Calificaciones.id_materia = Materias.id_materia;";
+
+    char* mensajeError = 0;
+    sqlite3_exec(db, sql, imprimirFila, 0, &mensajeError);
+}
 // 3. FUNCIÓN PRINCIPAL (El corazón del programa)
 int main() {
     sqlite3* db;
@@ -66,11 +112,13 @@ int main() {
 
     int opcion;
     do {
-        cout << "\n==== MENU PRINCIPAL ====" << endl;
+        cout << "\n==== SISTEMA NEXUS ACADEMICO ====" << endl;
         cout << "1. Registrar Estudiante" << endl;
         cout << "2. Ver Estudiantes" << endl;
         cout << "3. Registrar Materia" << endl;
         cout << "4. Ver Materias" << endl;
+        cout << "5. Asignar Nota" << endl;
+        cout << "6. Ver Reporte de Notas" << endl;
         cout << "0. Salir" << endl;
         cout << "Opcion: ";
         cin >> opcion;
@@ -80,6 +128,8 @@ int main() {
             case 2: listarEstudiantes(db); break;
             case 3: registrarMateria(db); break;
             case 4: listarMaterias(db); break;
+            case 5: asignarNota(db); break;
+            case 6: verReporteNotas(db); break;
         }
     } while (opcion != 0);
 
