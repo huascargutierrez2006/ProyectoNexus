@@ -11,11 +11,12 @@ using namespace std;
 
 // Esta es la función de impresión que usamos para leer datos
 int imprimirFila(void* data, int argc, char** argv, char** colNombre) {
+    
     for (int i = 0; i < argc; i++) {
         cout << colNombre[i] << ": " << (argv[i] ? argv[i] : "NULL") << " | ";
     }
     cout << endl;
-    return 0;
+    return 0; // Es vital que retorne 0
 }
 
 // Función para listar
@@ -24,6 +25,10 @@ void listarEstudiantes(sqlite3* db) {
     const char* sql = "SELECT * FROM Estudiantes;";
     char* mensajeError = 0;
     sqlite3_exec(db, sql, imprimirFila, 0, &mensajeError);
+    cout << "\n---------------------------------------" << endl;
+    cout << "Presione ENTER para volver al menu...";
+    cin.ignore(); // Limpia cualquier residuo del teclado
+    cin.get();    // Se queda esperando a que presiones una tecla
 }
 
 // Función para registrar
@@ -58,6 +63,10 @@ void listarMaterias(sqlite3* db) {
     cout << "\n--- Catalogo de Materias ---" << endl;
     const char* sql = "SELECT * FROM Materias;";
     sqlite3_exec(db, sql, imprimirFila, 0, 0);
+    cout << "\n---------------------------------------" << endl;
+    cout << "Presione ENTER para volver al menu...";
+    cin.ignore(); // Limpia cualquier residuo del teclado
+    cin.get();    // Se queda esperando a que presiones una tecla
 }
 void asignarNota(sqlite3* db) {
     int idEstudiante, idMateria;
@@ -104,21 +113,83 @@ void verReporteNotas(sqlite3* db) {
 
     char* mensajeError = 0;
     sqlite3_exec(db, sql, imprimirFila, 0, &mensajeError);
+    cout << "\n---------------------------------------" << endl;
+    cout << "Presione ENTER para volver al menu...";
+    cin.ignore(); // Limpia cualquier residuo del teclado
+    cin.get();    // Se queda esperando a que presiones una tecla
+}
+void borrarEstudiante(sqlite3* db) {
+    int id;
+    cout << "\n--- Borrar Estudiante ---" << endl;
+    cout << "Ingrese el ID del estudiante que desea eliminar: ";
+    cin >> id;
+
+    // 1. Borrar primero sus notas (por integridad referencial)
+    string sqlNotas = "DELETE FROM Calificaciones WHERE id_estudiante = " + to_string(id) + ";";
+    
+    // 2. Borrar al estudiante
+    string sqlEstudiante = "DELETE FROM Estudiantes WHERE id_estudiante = " + to_string(id) + ";";
+
+    char* mensajeError = 0;
+    
+    // Ejecutamos ambas acciones
+    sqlite3_exec(db, sqlNotas.c_str(), 0, 0, 0);
+    int rc = sqlite3_exec(db, sqlEstudiante.c_str(), 0, 0, &mensajeError);
+
+    if (rc != SQLITE_OK) {
+        cerr << "Error al borrar: " << mensajeError << endl;
+        sqlite3_free(mensajeError);
+    } else {
+        cout << "Estudiante y sus registros eliminados correctamente." << endl;
+    }
+}
+void borrarMateria(sqlite3* db) {
+    int id;
+    cout << "\n--- Borrar Materia ---" << endl;
+    cout << "Ingrese el ID de la materia que desea eliminar: ";
+    cin >> id;
+
+    // 1. Borrar primero las calificaciones vinculadas a esta materia
+    string sqlNotas = "DELETE FROM Calificaciones WHERE id_materia = " + to_string(id) + ";";
+    
+    // 2. Borrar la materia de la tabla principal
+    string sqlMateria = "DELETE FROM Materias WHERE id_materia = " + to_string(id) + ";";
+
+    char* mensajeError = 0;
+    
+    // Ejecutamos la limpieza de notas
+    sqlite3_exec(db, sqlNotas.c_str(), 0, 0, 0);
+    
+    // Ejecutamos el borrado de la materia
+    int rc = sqlite3_exec(db, sqlMateria.c_str(), 0, 0, &mensajeError);
+
+    if (rc != SQLITE_OK) {
+        cerr << "Error al borrar materia: " << mensajeError << endl;
+        sqlite3_free(mensajeError);
+    } else {
+        cout << "Materia y sus registros de notas eliminados correctamente." << endl;
+    }
+    
+    // Pausa para ver el mensaje
+    cout << "Presione ENTER para continuar...";
+    cin.ignore();
+    cin.get();
 }
 // 3. FUNCIÓN PRINCIPAL (El corazón del programa)
 int main() {
     sqlite3* db;
     sqlite3_open("sistema_academico.db", &db);
-
     int opcion;
     do {
-        cout << "\n==== SISTEMA NEXUS ACADEMICO ====" << endl;
+        cout << "\n==== SISTEMA NEXUS ACADEMICO V1.5 ====" << endl;
         cout << "1. Registrar Estudiante" << endl;
         cout << "2. Ver Estudiantes" << endl;
         cout << "3. Registrar Materia" << endl;
         cout << "4. Ver Materias" << endl;
         cout << "5. Asignar Nota" << endl;
         cout << "6. Ver Reporte de Notas" << endl;
+        cout << "7. Borrar Estudiante" << endl;
+        cout << "8. Borrar Materia" << endl; // Nueva línea
         cout << "0. Salir" << endl;
         cout << "Opcion: ";
         cin >> opcion;
@@ -130,6 +201,8 @@ int main() {
             case 4: listarMaterias(db); break;
             case 5: asignarNota(db); break;
             case 6: verReporteNotas(db); break;
+            case 7: borrarEstudiante(db); break;
+            case 8: borrarMateria(db); break; // Nueva línea
         }
     } while (opcion != 0);
 
