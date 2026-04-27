@@ -1,21 +1,18 @@
-// 1. INCLUSIONES (Librerías)
 #include <iostream>
 #include <string>
+//es un codigo en c, asi q lo colocamos dentro de extern
 extern "C" {
     #include "sqlite3.h"
 }
 // Definiciones de colores para la consola
 #define RESET   "\033[00m"
-#define RED     "\033[31m"      // Errores
-#define GREEN   "\033[32m"      // Éxitos
-#define YELLOW  "\033[33m"      // Advertencias/IDs
-#define CYAN    "\033[36m"      // Encabezados
-#define BOLD    "\033[1m"       // Resaltado
+#define RED     "\033[31m"      
+#define GREEN   "\033[32m"      
+#define YELLOW  "\033[33m"      
+#define CYAN    "\033[36m"      
+#define BOLD    "\033[1m"       
 using namespace std;
 
-// 2. FUNCIONES DE APOYO (Deben ir ARRIBA del main)
-
-// Esta es la función de impresión que usamos para leer datos
 int imprimirFila(void* data, int argc, char** argv, char** colNombre) {
     for (int i = 0; i < argc; i++) {
         cout << CYAN << colNombre[i] << ": " << RESET 
@@ -25,7 +22,6 @@ int imprimirFila(void* data, int argc, char** argv, char** colNombre) {
     return 0;
 }
 
-// Función para listar
 void listarEstudiantes(sqlite3* db) {
     cout << "\n--- Lista de Estudiantes Registrados ---" << endl;
     const char* sql = "SELECT * FROM Estudiantes;";
@@ -37,11 +33,12 @@ void listarEstudiantes(sqlite3* db) {
     cin.get();    // Se queda esperando a que presiones una tecla
 }
 
-// Función para registrar
 void registrarEstudiante(sqlite3* db) {
     string nombre, apellido;
-    cout << "\nNombre: "; cin >> nombre;
-    cout << "\nApellido: "; cin >> apellido;
+    cout << "\nNombre: ";
+    getline(cin >> ws, nombre); 
+    cout << "Apellido: ";
+    getline(cin >> ws, apellido);
     string sql = "INSERT INTO Estudiantes (nombre, apellido) VALUES ('" + nombre + "', '" + apellido + "');";
     sqlite3_exec(db, sql.c_str(), 0, 0, 0);
     cout << "Registrado!" << endl;
@@ -50,8 +47,7 @@ void registrarMateria(sqlite3* db) {
     string nombreMateria;
     cout << "\n--- Registrar Nueva Materia ---" << endl;
     cout << "Nombre de la materia: ";
-    cin.ignore(); // Limpia el buffer del teclado
-    getline(cin, nombreMateria); // Permite nombres con espacios como "Algebra Lineal"
+    getline(cin >> ws, nombreMateria);
 
     string sql = "INSERT INTO Materias (nombre_materia) VALUES ('" + nombreMateria + "');";
 
@@ -66,13 +62,13 @@ void registrarMateria(sqlite3* db) {
     }
 }
 void listarMaterias(sqlite3* db) {
-    cout << "\n--- Catalogo de Materias ---" << endl;
+    cout << "\n--- Lista de Materias ---" << endl;
     const char* sql = "SELECT * FROM Materias;";
     sqlite3_exec(db, sql, imprimirFila, 0, 0);
     cout << "\n---------------------------------------" << endl;
     cout << "Presione ENTER para volver al menu...";
-    cin.ignore(); // Limpia cualquier residuo del teclado
-    cin.get();    // Se queda esperando a que presiones una tecla
+    cin.ignore(); 
+    cin.get();    
 }
 void asignarNota(sqlite3* db) {
     int idEstudiante, idMateria;
@@ -127,68 +123,81 @@ void verReporteNotas(sqlite3* db) {
     sqlite3_exec(db, sql, imprimirFila, 0, &mensajeError);
     cout << "\n---------------------------------------" << endl;
     cout << "Presione ENTER para volver al menu...";
-    cin.ignore(); // Limpia cualquier residuo del teclado
-    cin.get();    // Se queda esperando a que presiones una tecla
+    cin.ignore(); // limpia cualquier residuo del teclado
+    cin.get();    // se queda esperando a que presiones una tecla
 }
 void borrarEstudiante(sqlite3* db) {
     int id;
     cout << "\n--- Borrar Estudiante ---" << endl;
-    cout << "Ingrese el ID del estudiante que desea eliminar: ";
+    cout << "ID a eliminar: ";
     cin >> id;
 
-    // 1. Borrar primero sus notas (por integridad referencial)
     string sqlNotas = "DELETE FROM Calificaciones WHERE id_estudiante = " + to_string(id) + ";";
-    
-    // 2. Borrar al estudiante
     string sqlEstudiante = "DELETE FROM Estudiantes WHERE id_estudiante = " + to_string(id) + ";";
 
-    char* mensajeError = 0;
-    
-    // Ejecutamos ambas acciones
     sqlite3_exec(db, sqlNotas.c_str(), 0, 0, 0);
-    int rc = sqlite3_exec(db, sqlEstudiante.c_str(), 0, 0, &mensajeError);
+    int rc = sqlite3_exec(db, sqlEstudiante.c_str(), 0, 0, 0);
 
-    if (rc != SQLITE_OK) {
-        cerr << "Error al borrar: " << mensajeError << endl;
-        sqlite3_free(mensajeError);
-    } else {
-        cout << "Estudiante y sus registros eliminados correctamente." << endl;
+    if (rc == SQLITE_OK) {
+        cout << GREEN << "Estudiante eliminado." << RESET << endl;
+
+        
+        // Si no hay filas, reiniciamos el contador de la base de datos
+        const char* sqlCheck = "SELECT COUNT(*) FROM Estudiantes;";
+        sqlite3_stmt* stmt;
+        sqlite3_prepare_v2(db, sqlCheck, -1, &stmt, 0);
+        sqlite3_step(stmt);
+        int count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+
+        if (count == 0) {
+            // resetear el incremento automático de IDs
+            sqlite3_exec(db, "DELETE FROM sqlite_sequence WHERE name='Estudiantes';", 0, 0, 0);
+            cout << YELLOW << "Tabla vacia. El siguiente ID sera 1." << RESET << endl;
+        }
     }
+
+    cout << "Presione Enter para continuar...";
+    cin.ignore();
+    cin.get();
 }
 void borrarMateria(sqlite3* db) {
     int id;
     cout << "\n--- Borrar Materia ---" << endl;
     cout << "Ingrese el ID de la materia que desea eliminar: ";
     cin >> id;
-
-    // 1. Borrar primero las calificaciones vinculadas a esta materia
+    //se borran las notas vinculadas
     string sqlNotas = "DELETE FROM Calificaciones WHERE id_materia = " + to_string(id) + ";";
-    
-    // 2. Borrar la materia de la tabla principal
     string sqlMateria = "DELETE FROM Materias WHERE id_materia = " + to_string(id) + ";";
 
     char* mensajeError = 0;
-    
-    // Ejecutamos la limpieza de notas
     sqlite3_exec(db, sqlNotas.c_str(), 0, 0, 0);
-    
-    // Ejecutamos el borrado de la materia
     int rc = sqlite3_exec(db, sqlMateria.c_str(), 0, 0, &mensajeError);
 
-    if (rc != SQLITE_OK) {
-        cerr << "Error al borrar materia: " << mensajeError << endl;
-        sqlite3_free(mensajeError);
+    if (rc == SQLITE_OK) {
+        cout << GREEN << "Materia eliminada con exito." << RESET << endl;
+
+        const char* sqlCheck = "SELECT COUNT(*) FROM Materias;";
+        sqlite3_stmt* stmt;
+        sqlite3_prepare_v2(db, sqlCheck, -1, &stmt, 0);
+        sqlite3_step(stmt);
+        int count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+
+        if (count == 0) {
+            sqlite3_exec(db, "DELETE FROM sqlite_sequence WHERE name='Materias';", 0, 0, 0);
+            cout << YELLOW << "Tabla de materias limpia. El proximo ID sera 1." << RESET << endl;
+        }
     } else {
-        cout << "Materia y sus registros de notas eliminados correctamente." << endl;
+        cerr << RED << "Error al borrar: " << mensajeError << RESET << endl;
+        sqlite3_free(mensajeError);
     }
-    
-    // Pausa para ver el mensaje
-    cout << "Presione ENTER para continuar...";
+
+    cout << "\nPresione Enter para continuar...";
     cin.ignore();
     cin.get();
 }
 void mostrarBanner() {
-    // Comando para limpiar la pantalla (funciona en VS Code y Windows)
     #ifdef _WIN32
         system("cls");
     #else
@@ -196,15 +205,13 @@ void mostrarBanner() {
     #endif
 
     cout << CYAN << BOLD << "========================================" << RESET << endl;
-    cout << CYAN << BOLD << "       PROYECTO NEXUS ACADEMICO v2.0     " << RESET << endl;
+    cout << CYAN << BOLD << "       PROYECTO NEXUS ACADEMICO      " << RESET << endl;
     cout << CYAN << BOLD << "========================================" << RESET << endl;
 }
-// 3. FUNCIÓN PRINCIPAL (El corazón del programa)
 int main() {
     sqlite3* db;
     int rc;
 
-    // 1. Intentar abrir la conexión con la base de datos
     rc = sqlite3_open("sistema_academico.db", &db);
 
     if (rc) {
@@ -212,13 +219,10 @@ int main() {
         return 1;
     }
 
-    // Aseguramos que las tablas existan al iniciar
-    // (Asumiendo que tienes una función llamada crearTablas)
-    // crearTablas(db); 
 
     int opcion;
     do {
-        mostrarBanner(); // Limpia la pantalla y muestra el encabezado azul
+        mostrarBanner(); 
 
         cout << BOLD << "  --- GESTION DE DATOS ---" << RESET << endl;
         cout << YELLOW << "  1." << RESET << " Registrar Estudiante" << endl;
@@ -238,9 +242,6 @@ int main() {
         
         cout << "\n> Seleccione una opcion: ";
         cin >> opcion;
-
-        // Limpieza de buffer vital para que las pausas funcionen
-        cin.ignore(); 
 
         switch (opcion) {
             case 1: registrarEstudiante(db); break;
@@ -263,7 +264,7 @@ int main() {
 
     } while (opcion != 0);
 
-    // Cerrar la conexión antes de terminar
+    // cierre de conexion a la base de datos
     sqlite3_close(db);
 
     return 0;
