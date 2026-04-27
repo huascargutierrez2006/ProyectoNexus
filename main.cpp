@@ -205,7 +205,7 @@ void mostrarBanner() {
     #endif
 
     cout << CYAN << BOLD << "========================================" << RESET << endl;
-    cout << CYAN << BOLD << "       PROYECTO NEXUS ACADEMICO      " << RESET << endl;
+    cout << CYAN << BOLD << "       PROYECTO NEXUS ACADEMY     " << RESET << endl;
     cout << CYAN << BOLD << "========================================" << RESET << endl;
 }
 int main() {
